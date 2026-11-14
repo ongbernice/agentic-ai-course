@@ -71,7 +71,7 @@ def main():
 
     initial_state = State(
         messages=[],
-        volley_msg_left=0,
+        volley_msg_left=7,
         next_speaker=None
     )
 

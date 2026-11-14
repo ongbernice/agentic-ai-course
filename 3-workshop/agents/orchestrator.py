@@ -1,5 +1,6 @@
 from langchain_openai import ChatOpenAI
 from langchain.schema import HumanMessage, SystemMessage
+from memory import load_human_persona
 from utils import debug
 
 
@@ -27,35 +28,43 @@ def orchestrator(state):
         }
 
     messages = state.get("messages", [])
+    human_persona = load_human_persona().strip()
+    if not human_persona:
+        human_persona = "No established human persona yet."
+    debug(f"human_persona: {human_persona}")
 
     conversation_text = ""
     for msg in messages:
         # Messages are now always dicts
         conversation_text += f"{msg.get('content', '')}\n"
 
-    system_prompt = """You are managing a lively conversation at a Singapore kopitiam.
+    system_prompt = f"""You are managing a lively conversation at a Singapore kopitiam.
 
     Available speakers:
     - ah_seng: Uncle Ah Seng, 68yo kopi uncle, speaks Singlish, knows about drinks and weather
     - mei_qi: Young 21yo content creator, social media savvy, knows latest news and trends
     - bala: Ex-statistician turned football tipster, dry humor, analytical
     - dr_tan: Retired 72yo philosophy professor, thoughtful and deep thinker
+    - human: The person chatting with the group
 
-    Based on the conversation flow, select who should speak next to keep the conversation lively and natural.
+    Human persona built from previous conversations:
+    {human_persona}
+
+    Select who should speak next based on the conversation and the human persona.
+
     Consider:
     - Who hasn't spoken recently
     - Who has relevant expertise for the current topic
     - Most importantly, who would add interesting perspective
     - Natural kopitiam banter flow
-    - mei_qi should speak more about social media and trends, and she gets a lot of news, so she's naturally excited.
 
-    Respond with ONLY the speaker ID (ah_seng, mei_qi, bala, or dr_tan).
+    Respond with ONLY one speaker ID: ah_seng, mei_qi, bala, dr_tan, or human.
     """
 
     user_prompt = f"""Recent conversation:
 {conversation_text}
 
-Who should speak next to keep this kopitiam conversation lively?"""
+Who should speak next to keep this kopitiam conversation lively and respectful of the human's preferences?"""
 
     debug("Analyzing conversation context...", "ORCHESTRATOR")
 
@@ -77,11 +86,11 @@ Who should speak next to keep this kopitiam conversation lively?"""
         debug(f"LLM selected: {selected_speaker}", "ORCHESTRATOR")
 
         # Validate speaker
-        valid_speakers = ["ah_seng", "mei_qi", "bala", "dr_tan"]
+        valid_speakers = ["ah_seng", "mei_qi", "bala", "dr_tan", "human"]
         if selected_speaker not in valid_speakers:
             # Fallback to round-robin if invalid
             import random
-            selected_speaker = random.choice(valid_speakers)
+            selected_speaker = random.choice(valid_speakers[:-1])
             debug(f"Invalid speaker, fallback to: {selected_speaker}", "ORCHESTRATOR")
 
     except Exception as e:
